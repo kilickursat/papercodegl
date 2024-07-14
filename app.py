@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 # Use a smaller model
 MODEL_NAME = "distilgpt2"
 
-@st.cache_data(allow_output_mutation=True)
+@st.cache_resource(allow_output_mutation=True)
 def load_model():
     try:
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
