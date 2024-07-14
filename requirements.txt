@@ -4,6 +4,6 @@ torch==1.13.1
 transformers==4.28.1
 pandas
 astroid==2.15.5
-torchvision==0.14.1
+torchvision==24.1.2
 torchaudio==0.13.1
 numpy==1.23.5
