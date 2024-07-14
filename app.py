@@ -1,7 +1,7 @@
 import streamlit as st
 import PyPDF2
 import io
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 import logging
 
@@ -9,8 +9,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Use a smaller model
-MODEL_NAME = "distilgpt2"
+# Use a more suitable model for code generation
+MODEL_NAME = "microsoft/CodeGPT-small-py"
 
 @st.cache_resource()
 def load_model():
@@ -35,40 +35,35 @@ def extract_text_from_pdf(pdf_file):
         logger.error(f"Error extracting text from PDF: {str(e)}")
         return ""
 
-def generate_text(prompt, max_length=500):
-    try:
-        inputs = tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
-        with torch.no_grad():
-            outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, temperature=0.7, top_p=0.95, do_sample=True)
-        return tokenizer.decode(outputs[0], skip_special_tokens=True)
-    except Exception as e:
-        logger.error(f"Error generating text: {str(e)}")
-        return ""
-
 def generate_code(text, language='python'):
-    prompt = f"Convert the following scientific methodology to {language} code:\n\n{text}\n\nGenerated {language} code:"
-    generated_text = generate_text(prompt)
-    
-    # Extract only the generated code part
-    code_start = generated_text.find(f"Generated {language} code:")
-    if code_start != -1:
-        generated_text = generated_text[code_start + len(f"Generated {language} code:"):]
-    
-    return generated_text.strip()
-
-def summarize_text(text):
-    prompt = f"Summarize the following scientific methodology:\n\n{text}\n\nSummary:"
-    summary = generate_text(prompt, max_length=200)
-    
-    # Extract only the summary part
-    summary_start = summary.find("Summary:")
-    if summary_start != -1:
-        summary = summary[summary_start + len("Summary:"):]
-    
-    return summary.strip()
+    try:
+        prompt = f"Convert this scientific methodology to {language} code:\n\n{text}\n\n{language} code:"
+        inputs = tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
+        
+        with torch.no_grad():
+            outputs = model.generate(
+                inputs, 
+                max_length=1000, 
+                num_return_sequences=1, 
+                temperature=0.7,
+                top_p=0.95,
+                do_sample=True
+            )
+        
+        generated_code = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Extract only the generated code part
+        code_start = generated_code.find(f"{language} code:")
+        if code_start != -1:
+            generated_code = generated_code[code_start + len(f"{language} code:"):]
+        
+        return generated_code.strip()
+    except Exception as e:
+        logger.error(f"Error generating code: {str(e)}")
+        return "Error: Failed to generate code. Please try again with a different input."
 
 def main():
-    st.title("Optimized Paper to Code Converter")
+    st.title("Paper to Code Converter")
 
     if tokenizer is None or model is None:
         st.error("Failed to load the model. Please try again later.")
@@ -91,16 +86,11 @@ def main():
 
     if st.button("Convert to Code"):
         if input_text:
-            with st.spinner("Processing... This may take a moment."):
+            with st.spinner("Converting to code... This may take a moment."):
                 try:
                     output_code = generate_code(input_text, language.lower())
-                    summary = summarize_text(input_text)
-
                     st.header("Output: Code Implementation")
                     st.code(output_code, language=language.lower())
-                    
-                    st.header("Summary of Methodology")
-                    st.write(summary)
                 except Exception as e:
                     logger.error(f"Error processing input: {str(e)}")
                     st.error("An error occurred while processing your input. Please try again.")
